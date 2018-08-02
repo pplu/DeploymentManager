@@ -1,0 +1,9 @@
+resources:
+- name: iam-sp
+  type: iam.v1.serviceAccount
+  properties:
+    accountId: iam-sp
+    displayName: serviceAccount-iam-sp
+outputs:
+- name: id
+  value: $(ref.iam-sp.uniqueId)
