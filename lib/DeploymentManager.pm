@@ -5,6 +5,15 @@ package DeploymentManager::Document;
   has file => (is => 'ro', isa => 'Str');
   has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
 
+  has properties => (
+    is => 'ro',
+    isa => 'ArrayRef',
+    lazy => 1,
+    builder => 'build_properties',
+    traits => [ 'Array' ],
+    handles => { num_of_properties => 'count' },
+  );
+
   sub build_content {
     my $self = shift;
     return path($self->file)->slurp;
@@ -13,8 +22,6 @@ package DeploymentManager::Document;
 package DeploymentManager::Template;
   use Moose;
   extends 'DeploymentManager::Document';
-
-  has properties => (is => 'ro', isa => 'ArrayRef', lazy => 1, builder => 'build_properties');
 
 package DeploymentManager::Template::Jinja;
   use Moose;
@@ -56,7 +63,7 @@ package DeploymentManager::Config;
   # A config doesn't have externally facing properties. It defines all properties
   # used in it's imports directly (you can't specify properties when creating a
   # --config ....yaml deployment
-  has properties => (is => 'ro', isa => 'ArrayRef', default => sub { [ ] });
+  sub build_properties { [ ] }
 
 package DeploymentManager;
   use Moose;
@@ -78,6 +85,7 @@ package DeploymentManager;
     builder => 'build_document',
     handles => {
       properties => 'properties',
+      num_of_properties => 'num_of_properties',
     },
   );
 
