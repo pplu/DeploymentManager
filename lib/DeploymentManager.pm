@@ -2,6 +2,8 @@ package DeploymentManager::Document;
   use Moose;
   use Path::Tiny;
 
+  our $VERSION = '0.01';
+
   has file => (is => 'ro', isa => 'Str');
   has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
 
