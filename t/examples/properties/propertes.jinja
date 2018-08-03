@@ -1,0 +1,35 @@
+resources:
+- type: gcp-types/logging-v2:projects.sinks
+  name: my-sink
+  properties:
+    sink: sink-{{ env['deployment'] }}
+    destination: pubsub.googleapis.com/$(ref.my-topic.name)
+    filter: {{ properties['filter'] }}
+    outputVersionFormat: V2
+- type: gcp-types/logging-v2:projects.metrics
+  name: my-metric
+  properties:
+    metric: metric-{{ env['deployment'] }}
+    filter: {{ properties['filter'] }}
+- name: role
+  {% if properties["isOrgnizationRole"] == true %}
+  type: gcp-types/iam-v1:organizations.roles
+  {% else %}
+  type: gcp-types/iam-v1:projects.roles
+  {% endif %}
+  properties:
+    {% if properties["isOrgnizationRole"] == true %}
+    parent: organizations/{{ properties["orgnizationId"] }}
+    {% else %}
+    parent: projects/{{ env["project"] }}
+    {% endif %}
+    roleId: {{ properties["roleId"] }}
+    role:
+      title: A test role
+      stage: EAP
+      description: {{ properties["description"] }}
+      includedPermissions:
+      - bigquery.datasets.delete
+      {% if properties["additionalPermission"] %}
+      - {{ properties["additionalPermission"] }}
+      {% endif %}
