@@ -104,3 +104,67 @@ package DeploymentManager;
   }
 
 1;
+### main pod documentation begin ###
+ 
+=encoding UTF-8
+ 
+=head1 NAME
+ 
+DeploymentManager - An object model for Google DeploymentManager templates
+ 
+=head1 SYNOPSIS
+ 
+  use DeploymentManager;
+ 
+  my $dm = DeploymentManager->new(
+    file => '...',
+  );
+ 
+=head1 DESCRIPTION
+ 
+This module creates an object model of Google DeploymentManager templates
+ 
+=head1 ATTRIBUTES
+ 
+=head2 file
+
+The file that contains
+
+=head2 document
+
+A property that contains the object for the file. It will contain a subclass
+of L<DeploymentManager::Document>.
+
+This can be a L<DeploymentManager::Template::Jinja> or a L<DeploymentManager::Template::Python>
+ 
+=head2 properties
+
+An Array with the properties in the document
+
+=head2 num_of_properties
+
+The number of properties declared in the document
+ 
+=head1 SEE ALSO
+ 
+L<https://cloud.google.com/deployment-manager/docs/>
+ 
+=head1 AUTHOR
+ 
+    Jose Luis Martinez
+    CAPSiDE
+    jlmartinez@capside.com
+ 
+=head1 BUGS and SOURCE
+ 
+The source code is located here: L<https://github.com/pplu/DeploymentManager.git>
+ 
+Please report bugs to: L<https://github.com/pplu/DeploymentManager/issues>
+ 
+=head1 COPYRIGHT and LICENSE
+ 
+Copyright (c) 2018 by CAPSiDE
+This code is distributed under the Apache 2 License. The full text of the 
+license can be found in the LICENSE file included with this module.
+ 
+=cut
