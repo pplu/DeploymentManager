@@ -1,3 +1,34 @@
+package DeploymentManager::Resource::Metadata;
+  use Moose;
+
+  has dependsOn => (is => 'ro', isa => 'ArrayRef[Str]');
+
+  sub as_hashref {
+    my $self = shift;
+    return {
+      dependsOn => $self->dependsOn,
+    }
+  }
+
+package DeploymentManager::Resource;
+  use Moose;
+
+  has name => (is => 'ro', isa => 'Str', required => 1);
+  has type => (is => 'ro', isa => 'Str', required => 1);
+  #TODO: don't know if properties is really required
+  has properties => (is => 'ro', isa => 'HashRef', required => 1); 
+  has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata');
+
+  sub as_hashref {
+    my ($self, @ctx) = @_;
+    return {
+      name => $self->name,
+      type => $self->type,
+      properties => $self->properties,
+      (defined $self->metadata) ? (metadata => $self->metadata->as_hashref(@ctx)) : (),
+    };
+  }
+
 package DeploymentManager::Document;
   use Moose;
   use Path::Tiny;
