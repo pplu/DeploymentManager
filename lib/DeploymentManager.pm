@@ -1,5 +1,9 @@
 package DeploymentManager::Resource::Metadata;
   use Moose;
+  use Moose::Util::TypeConstraints;
+
+  coerce 'DeploymentManager::Resource::Metadata' => from 'HashRef' 
+    => via { DeploymentManager::Resource::Metadata->new(%$_) };
 
   has dependsOn => (is => 'ro', isa => 'ArrayRef[Str]');
 
@@ -17,7 +21,7 @@ package DeploymentManager::Resource;
   has type => (is => 'ro', isa => 'Str', required => 1);
   #TODO: don't know if properties is really required
   has properties => (is => 'ro', isa => 'HashRef', required => 1); 
-  has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata');
+  has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata', coerce => 1);
 
   sub as_hashref {
     my ($self, @ctx) = @_;
@@ -53,12 +57,48 @@ package DeploymentManager::Document;
 package DeploymentManager::Template;
   use Moose;
   extends 'DeploymentManager::Document';
+  use YAML::PP;
+
+  has property_values => (is => 'ro', isa => 'HashRef');
+  has environment => (is => 'ro', isa => 'HashRef');
+  has processed_template => (is => 'ro', isa => 'Str', lazy => 1, builder => 'process_template');
+  has processed_yaml => (is => 'ro', isa => 'HashRef', lazy => 1, builder => 'build_processed_yaml');
+
+  has resources => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Resource]',
+    lazy => 1,
+    builder => 'build_resources',
+    traits => [ 'Array' ],
+    handles => {
+      num_of_resources => 'count'
+    },
+  );
+
+  sub process_template {
+    my $self = shift;
+    if (not defined $self->property_values or not defined $self->environment) {
+      die "Can't process a template without having property_values and environment attributes set"
+    }
+    #TODO: process the Jinja template
+    die "Can't process Jinja template yet";
+  }
+
+  sub build_processed_yaml {
+    my $self = shift;
+    YAML::PP->new->load_string($self->processed_template);
+  }
+
+  sub build_resources {
+    my $self = shift;
+    return [ 
+      map { DeploymentManager::Resource->new(%$_) } @{ $self->processed_yaml->{ resources } }
+    ];
+  }
 
 package DeploymentManager::Template::Jinja;
   use Moose;
   extends 'DeploymentManager::Template';
-
-  has resources => (is => 'ro', isa => 'ArrayRef[DeploymentManager::Resource]');
 
   sub as_hashref {
     my ($self, @ctx) = @_;
