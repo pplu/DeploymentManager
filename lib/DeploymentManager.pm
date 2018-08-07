@@ -58,6 +58,15 @@ package DeploymentManager::Template::Jinja;
   use Moose;
   extends 'DeploymentManager::Template';
 
+  has resources => (is => 'ro', isa => 'ArrayRef[DeploymentManager::Resource]');
+
+  sub as_hashref {
+    my ($self, @ctx) = @_;
+    return {
+      resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ],
+    };
+  }
+
   sub build_properties {
     my $self = shift;
    
@@ -95,6 +104,8 @@ package DeploymentManager::Config;
   # used in it's imports directly (you can't specify properties when creating a
   # --config ....yaml deployment
   sub build_properties { [ ] }
+
+
 
 package DeploymentManager;
   use Moose;

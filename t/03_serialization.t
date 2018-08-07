@@ -18,14 +18,24 @@ use Test::More;
     ),
   );
 
+  my $r1_hash = {
+    name => 'n1',
+    type => 't1',
+    properties => { prop1 => 'prop1value' },
+    metadata => { dependsOn => [ 'r2' ] },
+  };
   is_deeply(
     $r->as_hashref,
-    {
-      name => 'n1',
-      type => 't1',
-      properties => { prop1 => 'prop1value' },
-      metadata => { dependsOn => [ 'r2' ] },
-    }
+    $r1_hash,
+  );
+
+  my $d = DeploymentManager::Template::Jinja->new(
+    resources => [ $r ],
+  );
+
+  is_deeply(
+    $d->as_hashref,
+    { resources => [ $r1_hash ] }
   );
 }
 
@@ -39,14 +49,26 @@ use Test::More;
     },
   );
 
+  my $r1_hash = {
+    name => 'n1',
+    type => 't2',
+    properties => { prop2 => 'prop2value' },
+  };
+
   is_deeply(
     $r->as_hashref,
-    {
-      name => 'n1',
-      type => 't2',
-      properties => { prop2 => 'prop2value' },
-    }
+    $r1_hash,
   );
+
+  my $d = DeploymentManager::Template::Jinja->new(
+    resources => [ $r ],
+  );
+
+  is_deeply(
+    $d->as_hashref,
+    { resources => [ $r1_hash ] }
+  );
+
 }
 
 done_testing;
