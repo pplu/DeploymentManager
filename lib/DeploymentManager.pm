@@ -204,7 +204,7 @@ package DeploymentManager::Config;
   # --config ....yaml deployment
   sub build_properties { [ ] }
 
-
+  sub build_resources { [ ] }
 
 package DeploymentManager;
   use Moose;

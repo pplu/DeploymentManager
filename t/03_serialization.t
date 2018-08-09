@@ -61,14 +61,30 @@ use Test::More;
   );
 
   my $d = DeploymentManager::Template::Jinja->new(
+    outputs => [ DeploymentManager::Output->new(name => 'o1', value => 'v1') ],
     resources => [ $r ],
   );
 
   is_deeply(
     $d->as_hashref,
-    { resources => [ $r1_hash ] }
+    { resources => [ $r1_hash ],
+      outputs => [ { name => 'o1', value => 'v1' } ] 
+    }
+  );
+}
+
+{
+  my $d = DeploymentManager::Config->new(
+    outputs => [ DeploymentManager::Output->new(name => 'o1', value => 'v1') ],
   );
 
+  is_deeply(
+    $d->as_hashref,
+    { outputs => [ { name => 'o1', value => 'v1' } ],
+      resources => [] 
+    }
+  );
 }
+
 
 done_testing;
