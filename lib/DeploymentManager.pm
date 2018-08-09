@@ -1,3 +1,27 @@
+package DeploymentManager::Property;
+  use Moose;
+  use Moose::Util::TypeConstraints qw/enum/;
+
+  enum 'DeploymentManager::Property::Type', [qw/string boolean integer number/];
+
+  has type => (is => 'ro', isa => 'DeploymentManager::Property::Type', required => 1);
+  has default => (is => 'ro');
+  has minimum => (is => 'ro');
+  has maximum => (is => 'ro');
+  has pattern => (is => 'ro');
+  #has not X / allOf X, Y / anyOf X, Y / oneOf X, Y
+
+  sub as_hashref {
+    my ($self, @ctx) = @_;
+    return {
+      type => $self->type,
+      (defined $self->default) ? (default => $self->default) : (),
+      (defined $self->minimum) ? (minimum => $self->minimum) : (),
+      (defined $self->maximum) ? (maximim => $self->maximum) : (),
+      (defined $self->pattern) ? (pattern => $self->pattern) : (),
+    }
+  }
+
 package DeploymentManager::Resource::Metadata;
   use Moose;
   use Moose::Util::TypeConstraints;
