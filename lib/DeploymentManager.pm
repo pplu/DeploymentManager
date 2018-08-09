@@ -106,6 +106,17 @@ package DeploymentManager::Document;
     handles => { num_of_outputs => 'count' },
   );
 
+  has resources => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Resource]',
+    lazy => 1,
+    builder => 'build_resources',
+    traits => [ 'Array' ],
+    handles => {
+      num_of_resources => 'count'
+    },
+  );
+
   sub build_content {
     my $self = shift;
     return path($self->file)->slurp;
@@ -114,6 +125,7 @@ package DeploymentManager::Document;
   sub as_hashref {
     my ($self, @ctx) = @_;
     return {
+      resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ],
       (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : (),
       (defined $self->imports) ? (imports => [ map { $_->as_hashref(@ctx) } @{ $self->imports } ]) : (),
     };
@@ -128,17 +140,6 @@ package DeploymentManager::Template;
   has environment => (is => 'ro', isa => 'HashRef');
   has processed_template => (is => 'ro', isa => 'Str', lazy => 1, builder => 'process_template');
   has processed_yaml => (is => 'ro', isa => 'HashRef', lazy => 1, builder => 'build_processed_yaml');
-
-  has resources => (
-    is => 'ro',
-    isa => 'ArrayRef[DeploymentManager::Resource]',
-    lazy => 1,
-    builder => 'build_resources',
-    traits => [ 'Array' ],
-    handles => {
-      num_of_resources => 'count'
-    },
-  );
 
   sub process_template {
     my $self = shift;
@@ -164,13 +165,6 @@ package DeploymentManager::Template;
 package DeploymentManager::Template::Jinja;
   use Moose;
   extends 'DeploymentManager::Template';
-
-  sub as_hashref {
-    my ($self, @ctx) = @_;
-    return {
-      resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ],
-    };
-  }
 
   sub build_properties {
     my $self = shift;
