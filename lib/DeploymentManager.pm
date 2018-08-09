@@ -1,3 +1,13 @@
+package DeploymentManager::Import;
+  use Moose;
+
+  has path => (is => 'ro', isa => 'Str', required => 1);
+
+  sub as_hashref {
+    my $self = shift;
+    { path => $self->path }
+  }
+
 package DeploymentManager::Output;
   use Moose;
 
@@ -75,6 +85,11 @@ package DeploymentManager::Document;
   has file => (is => 'ro', isa => 'Str');
   has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
 
+  has imports => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Import]',
+  );
+
   has properties => (
     is => 'ro',
     isa => 'ArrayRef',
@@ -100,6 +115,7 @@ package DeploymentManager::Document;
     my ($self, @ctx) = @_;
     return {
       (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : (),
+      (defined $self->imports) ? (imports => [ map { $_->as_hashref(@ctx) } @{ $self->imports } ]) : (),
     };
   }
 
