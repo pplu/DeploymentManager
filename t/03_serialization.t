@@ -76,12 +76,14 @@ use Test::More;
 {
   my $d = DeploymentManager::Config->new(
     outputs => [ DeploymentManager::Output->new(name => 'o1', value => 'v1') ],
+    imports => [ DeploymentManager::Import->new(path => 'path1') ],
   );
 
   is_deeply(
     $d->as_hashref,
     { outputs => [ { name => 'o1', value => 'v1' } ],
-      resources => [] 
+      resources => [],
+      imports => [ { path => 'path1' } ]
     }
   );
 }
