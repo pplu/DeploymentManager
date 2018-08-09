@@ -1,3 +1,14 @@
+package DeploymentManager::Output;
+  use Moose;
+
+  has name => (is => 'ro', isa => 'Str', required => 1);
+  has value => (is => 'ro', isa => 'Str', required => 1);
+
+  sub as_hashref {
+    my $self = shift;
+    { name => $self->name, value => $self->value }
+  }
+
 package DeploymentManager::Property;
   use Moose;
   use Moose::Util::TypeConstraints qw/enum/;
@@ -73,9 +84,23 @@ package DeploymentManager::Document;
     handles => { num_of_properties => 'count' },
   );
 
+  has outputs => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Output]',
+    traits => [ 'Array' ],
+    handles => { num_of_outputs => 'count' },
+  );
+
   sub build_content {
     my $self = shift;
     return path($self->file)->slurp;
+  }
+
+  sub as_hashref {
+    my ($self, @ctx) = @_;
+    return {
+      (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : (),
+    };
   }
 
 package DeploymentManager::Template;
