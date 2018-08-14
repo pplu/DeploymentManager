@@ -85,11 +85,6 @@ package DeploymentManager::Document;
   has file => (is => 'ro', isa => 'Str');
   has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
 
-  has imports => (
-    is => 'ro',
-    isa => 'ArrayRef[DeploymentManager::Import]',
-  );
-
   has properties => (
     is => 'ro',
     isa => 'ArrayRef',
@@ -127,7 +122,6 @@ package DeploymentManager::Document;
     return {
       resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ],
       (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : (),
-      (defined $self->imports) ? (imports => [ map { $_->as_hashref(@ctx) } @{ $self->imports } ]) : (),
     };
   }
 
@@ -199,12 +193,27 @@ package DeploymentManager::Config;
   use Moose;
   extends 'DeploymentManager::Document';
 
+  has imports => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Import]',
+  );
+
   # A config doesn't have externally facing properties. It defines all properties
   # used in it's imports directly (you can't specify properties when creating a
   # --config ....yaml deployment
   sub build_properties { [ ] }
 
   sub build_resources { [ ] }
+
+  around as_hashref => sub {
+    my ($orig, $self, @ctx) = @_;
+
+    my $hr = $self->$orig(@ctx);
+    if (defined $self->imports) {
+      $hr->{ imports } = [ map { $_->as_hashref(@ctx) } @{ $self->imports } ];
+    }
+    return $hr;
+  };
 
 package DeploymentManager;
   use Moose;
