@@ -1,0 +1,14 @@
+imports:
+- path: VPC.jinja
+
+resources:
+- name: vpc
+  type: VPC.jinja
+  properties:
+    region: europe-west1
+    subnets:
+      - name: subnet1
+        cidr:  10.10.10.0/24
+      - name: subnet2
+        cidr:  10.20.10.0/24
+

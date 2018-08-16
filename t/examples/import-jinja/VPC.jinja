@@ -1,0 +1,25 @@
+resources:
+
+## NETWORK
+- type: compute.v1.network
+  name: {{ env["deployment"] }}-vpc
+  properties:
+    autoCreateSubnetworks: false
+
+{% for subnet in properties["subnets"] %}
+- type: 'compute.v1.subnetwork'
+  name: {{ subnet["name"] }}
+  properties:
+    name: {{ subnet["name"] }}
+    description: "Subnetwork of {{ env['deployment'] }}-vpc in {{ properties['region'] }}"
+    network: $(ref.{{ env["deployment"] }}-vpc.selfLink)
+    ipCidrRange: {{ subnet["cidr"] }}
+    region: {{ properties["region"] }}
+  metadata:
+    dependsOn:
+      - {{ env["deployment"] }}-vpc
+{% endfor %}
+
+outputs:
+  - name: vpc-id
+    value: $(ref.{{ env["deployment"] }}-vpc.selfLink)
