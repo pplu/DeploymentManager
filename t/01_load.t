@@ -4,7 +4,7 @@ use DeploymentManager;
 use Test::More;
 
 {
-  my $d = DeploymentManager->new(
+  my $d = DeploymentManager::File->new(
     file => 't/examples/simple/deploy.yaml'
   );
 
@@ -13,7 +13,7 @@ use Test::More;
 }
 
 {
-  my $d = DeploymentManager->new(
+  my $d = DeploymentManager::File->new(
     file => 't/examples/simple/deploy.jinja'
   );
 
@@ -22,7 +22,7 @@ use Test::More;
 }
 
 {
-  my $d = DeploymentManager->new(
+  my $d = DeploymentManager::File->new(
     file => 't/examples/simple/deploy.py'
   );
 

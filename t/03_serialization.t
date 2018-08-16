@@ -82,7 +82,6 @@ use Test::More;
   is_deeply(
     $d->as_hashref,
     { outputs => [ { name => 'o1', value => 'v1' } ],
-      resources => [],
       imports => [ { path => 'path1' } ]
     }
   );

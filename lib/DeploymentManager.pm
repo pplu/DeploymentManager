@@ -80,10 +80,51 @@ package DeploymentManager::Resource;
 
 package DeploymentManager::Document;
   use Moose;
-  use Path::Tiny;
 
-  has file => (is => 'ro', isa => 'Str');
-  has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
+  has outputs => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Output]',
+  );
+
+  has resources => (
+    is => 'ro',
+    isa => 'ArrayRef[DeploymentManager::Resource]',
+  );
+
+  sub num_of_outputs {
+    my $self = shift;
+    return 0 if (not defined $self->outputs);
+    return scalar(@{ $self->outputs });
+  }
+
+  sub num_of_resources {
+    my $self = shift;
+    return 0 if (not defined $self->resources);
+    return scalar(@{ $self->resources });
+  }
+
+  sub as_hashref {
+    my ($self, @ctx) = @_;
+    return {
+      (defined $self->resources) ? (resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ] ) : (),
+      (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : ()
+    };
+  }
+
+package DeploymentManager::Template;
+  use Moose;
+  extends 'DeploymentManager::Document';
+
+  has properties => (
+    is => 'ro',
+    isa => 'ArrayRef',
+    traits => [ 'Array' ],
+    handles => { num_of_properties => 'count' },
+  );
+
+package DeploymentManager::Document::Unprocessed;
+  use Moose;
+  extends 'DeploymentManager::File';
 
   has properties => (
     is => 'ro',
@@ -94,71 +135,60 @@ package DeploymentManager::Document;
     handles => { num_of_properties => 'count' },
   );
 
-  has outputs => (
-    is => 'ro',
-    isa => 'ArrayRef[DeploymentManager::Output]',
-    traits => [ 'Array' ],
-    handles => { num_of_outputs => 'count' },
-  );
+  sub process {
+    die "Unimplemented";
+  };
 
-  has resources => (
-    is => 'ro',
-    isa => 'ArrayRef[DeploymentManager::Resource]',
-    lazy => 1,
-    builder => 'build_resources',
-    traits => [ 'Array' ],
-    handles => {
-      num_of_resources => 'count'
-    },
-  );
-
-  sub build_content {
-    my $self = shift;
-    return path($self->file)->slurp;
-  }
-
-  sub as_hashref {
-    my ($self, @ctx) = @_;
-    return {
-      resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ],
-      (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : (),
-    };
-  }
-
-package DeploymentManager::Template;
+package DeploymentManager::Config::Unprocessed;
   use Moose;
-  extends 'DeploymentManager::Document';
+  extends 'DeploymentManager::Document::Unprocessed';
   use YAML::PP;
 
-  has property_values => (is => 'ro', isa => 'HashRef');
-  has environment => (is => 'ro', isa => 'HashRef');
-  has processed_template => (is => 'ro', isa => 'Str', lazy => 1, builder => 'process_template');
-  has processed_yaml => (is => 'ro', isa => 'HashRef', lazy => 1, builder => 'build_processed_yaml');
-
-  sub process_template {
-    my $self = shift;
-    if (not defined $self->property_values or not defined $self->environment) {
-      die "Can't process a template without having property_values and environment attributes set"
+  sub process {
+    my ($self, $context) = @_;
+    #TODO: produce a DeploymentManager::Config with self->content
+    my $struct = YAML::PP->new->load_string($self->content);
+    my $init_args = {};
+    if (defined $struct->{ imports }) {
+      $init_args->{ imports } = [
+        map { DeploymentManager::Import->new(%$_) } @{ $struct->{ imports } } 
+      ];
     }
-    #TODO: process the Jinja template
-    die "Can't process Jinja template yet";
+    if (defined $struct->{ resources }) {
+      $init_args->{ resources } = [ 
+        map { DeploymentManager::Resource->new(%$_) } @{ $struct->{ resources } }
+      ];
+    }
+    return DeploymentManager::Config->new(%$init_args);
   }
 
-  sub build_processed_yaml {
-    my $self = shift;
-    YAML::PP->new->load_string($self->processed_template);
-  }
+  # A config doesn't have externally facing properties. It defines all properties
+  # used in it's imports directly (you can't specify properties when creating a
+  # --config ....yaml deployment
+  sub build_properties { [ ] }
 
-  sub build_resources {
-    my $self = shift;
-    return [ 
-      map { DeploymentManager::Resource->new(%$_) } @{ $self->processed_yaml->{ resources } }
-    ];
-  }
-
-package DeploymentManager::Template::Jinja;
+package DeploymentManager::Template::Jinja::Unprocessed;
   use Moose;
-  extends 'DeploymentManager::Template';
+  extends 'DeploymentManager::Document::Unprocessed';
+  use YAML::PP;
+
+  sub process {
+    my ($self, $context) = @_;
+    #TODO: produce a DeploymentManager::Template::Jinja with self->content
+    my $struct = YAML::PP->new->load_string($self->content);
+    my $init_args = {};
+    if (defined $struct->{ imports }) {
+      $init_args->{ imports } = [
+        map { DeploymentManager::Import->new(%$_) } @{ $struct->{ imports } } 
+      ];
+    }
+    if (defined $struct->{ resources }) {
+      $init_args->{ resources } = [ 
+        map { DeploymentManager::Resource->new(%$_) } @{ $struct->{ resources } }
+      ];
+    }
+    return DeploymentManager::Template::Jinja->new(%$init_args);
+  }
 
   sub build_properties {
     my $self = shift;
@@ -189,6 +219,10 @@ package DeploymentManager::Template::Jinja;
     return [ sort keys %props ];
   }
 
+package DeploymentManager::Template::Jinja;
+  use Moose;
+  extends 'DeploymentManager::Template';
+
 package DeploymentManager::Config;
   use Moose;
   extends 'DeploymentManager::Document';
@@ -197,13 +231,6 @@ package DeploymentManager::Config;
     is => 'ro',
     isa => 'ArrayRef[DeploymentManager::Import]',
   );
-
-  # A config doesn't have externally facing properties. It defines all properties
-  # used in it's imports directly (you can't specify properties when creating a
-  # --config ....yaml deployment
-  sub build_properties { [ ] }
-
-  sub build_resources { [ ] }
 
   around as_hashref => sub {
     my ($orig, $self, @ctx) = @_;
@@ -215,12 +242,12 @@ package DeploymentManager::Config;
     return $hr;
   };
 
-package DeploymentManager;
+package DeploymentManager::File;
   use Moose;
+  use Path::Tiny;
 
-  our $VERSION = '0.01';
-
-  has file => (is => 'ro', isa => 'Str', required => 1);
+  has file => (is => 'ro', isa => 'Str');
+  has content => (is => 'ro', isa => 'Str', required => 1, lazy => 1, builder => 'build_content');
 
   has type => (is => 'ro', isa => 'Str', lazy => 1, default => sub {
     my $self = shift;
@@ -232,7 +259,7 @@ package DeploymentManager;
 
   has document => (
     is => 'ro',
-    isa => 'DeploymentManager::Document',
+    isa => 'DeploymentManager::Document::Unprocessed',
     lazy => 1,
     builder => 'build_document',
     handles => {
@@ -245,13 +272,24 @@ package DeploymentManager;
     my ($self, $file) = @_;
 
     if      ($self->type eq 'config') {
-      DeploymentManager::Config->new(file => $self->file);
+      DeploymentManager::Config::Unprocessed->new(file => $self->file);
     } elsif ($self->type eq 'template_jinja') {
-      DeploymentManager::Template::Jinja->new(file => $self->file);
+      DeploymentManager::Template::Jinja::Unprocessed->new(file => $self->file);
     } else {
       die "Unsupported document type";
     }
   }
+
+  sub build_content {
+    my $self = shift;
+    die "Can't load content if file isn't defined" if (not defined $self->file);
+    return path($self->file)->slurp;
+  }
+
+package DeploymentManager;
+  use Moose;
+
+  our $VERSION = '0.01';
 
 1;
 ### main pod documentation begin ###

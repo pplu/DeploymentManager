@@ -6,8 +6,8 @@ use DeploymentManager;
 use Test::More;
 
 { 
-  my $d = DeploymentManager::Template::Jinja->new(
-    processed_template => <<EOT,
+  my $d = DeploymentManager::Template::Jinja::Unprocessed->new(
+    content => <<EOT,
 resources:
  - name: r1
    type: t1
@@ -16,9 +16,10 @@ resources:
 EOT
   );
 
-  cmp_ok($d->num_of_resources, '==', 1);
+  my $p = $d->process;
+  cmp_ok($p->num_of_resources, '==', 1);
   is_deeply(
-    $d->as_hashref,
+    $p->as_hashref,
     { resources => [ {
         name => 'r1',
         type => 't1',
@@ -31,8 +32,8 @@ EOT
 }
 
 { 
-  my $d = DeploymentManager::Template::Jinja->new(
-    processed_template => <<EOT,
+  my $d = DeploymentManager::Template::Jinja::Unprocessed->new(
+    content => <<EOT,
 resources:
  - name: r1
    type: t1
@@ -43,9 +44,10 @@ resources:
 EOT
   );
 
-  cmp_ok($d->num_of_resources, '==', 1);
+  my $p = $d->process;
+  cmp_ok($p->num_of_resources, '==', 1);
   is_deeply(
-    $d->as_hashref,
+    $p->as_hashref,
     { resources => [ {
         name => 'r1',
         type => 't1',
