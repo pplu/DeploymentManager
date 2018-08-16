@@ -3,6 +3,13 @@ package DeploymentManager::Import;
 
   has path => (is => 'ro', isa => 'Str', required => 1);
 
+  sub from_hashref {
+    my ($self, $hr) = @_;
+    my $init_args = {};
+    $init_args->{ path } = $hr->{ path } if (defined $hr->{ path });
+    DeploymentManager::Import->new($init_args);
+  }
+
   sub as_hashref {
     my $self = shift;
     { path => $self->path }
@@ -13,6 +20,14 @@ package DeploymentManager::Output;
 
   has name => (is => 'ro', isa => 'Str', required => 1);
   has value => (is => 'ro', isa => 'Str', required => 1);
+
+  sub from_hashref {
+    my ($self, $hr) = @_;
+    my $init_args = {};
+    $init_args->{ name } = $hr->{ name } if (defined $hr->{ name });
+    $init_args->{ value } = $hr->{ value } if (defined $hr->{ value });
+    DeploymentManager::Output->new($init_args);
+  }
 
   sub as_hashref {
     my $self = shift;
@@ -47,10 +62,14 @@ package DeploymentManager::Resource::Metadata;
   use Moose;
   use Moose::Util::TypeConstraints;
 
-  coerce 'DeploymentManager::Resource::Metadata' => from 'HashRef' 
-    => via { DeploymentManager::Resource::Metadata->new(%$_) };
-
   has dependsOn => (is => 'ro', isa => 'ArrayRef[Str]');
+
+  sub from_hashref {
+    my ($class, $hr) = @_;
+    my $init_args = {};
+    $init_args->{ dependsOn } = $hr->{ dependsOn } if (defined $hr->{ dependsOn });
+    DeploymentManager::Resource::Metadata->new(%$init_args);
+  }
 
   sub as_hashref {
     my $self = shift;
@@ -66,7 +85,17 @@ package DeploymentManager::Resource;
   has type => (is => 'ro', isa => 'Str', required => 1);
   #TODO: don't know if properties is really required
   has properties => (is => 'ro', isa => 'HashRef', required => 1); 
-  has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata', coerce => 1);
+  has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata');
+
+  sub from_hashref {
+    my ($self, $hr) = @_;
+    my $init_args = {};
+    $init_args->{ name } = $hr->{ name } if (defined $hr->{ name });
+    $init_args->{ type } = $hr->{ type } if (defined $hr->{ type });
+    $init_args->{ properties } = $hr->{ properties };
+    $init_args->{ metadata } = DeploymentManager::Resource::Metadata->from_hashref($hr->{ metadata }) if (defined $hr->{ metadata });
+    DeploymentManager::Resource->new($init_args);
+  }
 
   sub as_hashref {
     my ($self, @ctx) = @_;
@@ -148,18 +177,7 @@ package DeploymentManager::Config::Unprocessed;
     my ($self, $context) = @_;
     #TODO: produce a DeploymentManager::Config with self->content
     my $struct = YAML::PP->new->load_string($self->content);
-    my $init_args = {};
-    if (defined $struct->{ imports }) {
-      $init_args->{ imports } = [
-        map { DeploymentManager::Import->new(%$_) } @{ $struct->{ imports } } 
-      ];
-    }
-    if (defined $struct->{ resources }) {
-      $init_args->{ resources } = [ 
-        map { DeploymentManager::Resource->new(%$_) } @{ $struct->{ resources } }
-      ];
-    }
-    return DeploymentManager::Config->new(%$init_args);
+    return DeploymentManager::Config->from_hashref($struct);
   }
 
   # A config doesn't have externally facing properties. It defines all properties
@@ -176,18 +194,7 @@ package DeploymentManager::Template::Jinja::Unprocessed;
     my ($self, $context) = @_;
     #TODO: produce a DeploymentManager::Template::Jinja with self->content
     my $struct = YAML::PP->new->load_string($self->content);
-    my $init_args = {};
-    if (defined $struct->{ imports }) {
-      $init_args->{ imports } = [
-        map { DeploymentManager::Import->new(%$_) } @{ $struct->{ imports } } 
-      ];
-    }
-    if (defined $struct->{ resources }) {
-      $init_args->{ resources } = [ 
-        map { DeploymentManager::Resource->new(%$_) } @{ $struct->{ resources } }
-      ];
-    }
-    return DeploymentManager::Template::Jinja->new(%$init_args);
+    return DeploymentManager::Template::Jinja->from_hashref($struct);
   }
 
   sub build_properties {
@@ -223,6 +230,18 @@ package DeploymentManager::Template::Jinja;
   use Moose;
   extends 'DeploymentManager::Template';
 
+  sub from_hashref {
+    my ($self, $hr) = @_;
+    my $init_args = {};
+    if (defined $hr->{ resources }) {
+      $init_args->{ resources } = [ map { DeploymentManager::Resource->from_hashref($_) } @{ $hr->{ resources } } ];
+    }
+    if (defined $hr->{ outputs }) {
+      $init_args->{ outputs } = [ map { DeploymentManager::Output->from_hashref($_) } @{ $hr->{ outputs } } ];
+    }
+    DeploymentManager::Template::Jinja->new($init_args);
+  }
+
 package DeploymentManager::Config;
   use Moose;
   extends 'DeploymentManager::Document';
@@ -231,6 +250,21 @@ package DeploymentManager::Config;
     is => 'ro',
     isa => 'ArrayRef[DeploymentManager::Import]',
   );
+
+  sub from_hashref {
+    my ($self, $hr) = @_;
+    my $init_args = {};
+    if (defined $hr->{ resources }) {
+      $init_args->{ resources } = [ map { DeploymentManager::Resource->from_hashref($_) } @{ $hr->{ resources } } ];
+    }
+    if (defined $hr->{ outputs }) {
+      $init_args->{ outputs } = [ map { DeploymentManager::Output->from_hashref($_) } @{ $hr->{ outputs } } ];
+    }
+    if (defined $hr->{ imports }) {
+      $init_args->{ imports } = [ map { DeploymentManager::Import->from_hashref($_) } @{ $hr->{ imports } } ];
+    }
+    DeploymentManager::Config->new($init_args);
+  }
 
   around as_hashref => sub {
     my ($orig, $self, @ctx) = @_;

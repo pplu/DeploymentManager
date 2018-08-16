@@ -41,6 +41,9 @@ resources:
      prop1: prop1value
    metadata:
      dependsOn: [ r1 ]
+outputs:
+ - name: o1
+   value: v1
 EOT
   );
 
@@ -57,7 +60,8 @@ EOT
         metadata => {
           dependsOn => [ 'r1' ],
         }
-      } ]
+      } ],
+      outputs => [ { name => 'o1', value => 'v1' } ],
     }
   );
 }
