@@ -251,6 +251,12 @@ package DeploymentManager::Config;
     isa => 'ArrayRef[DeploymentManager::Import]',
   );
 
+  sub num_of_imports {
+    my $self = shift;
+    return 0 if (not defined $self->imports);
+    return scalar(@{ $self->imports });
+  }
+
   sub from_hashref {
     my ($self, $hr) = @_;
     my $init_args = {};
