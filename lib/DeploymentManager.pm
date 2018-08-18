@@ -1,42 +1,125 @@
-package DeploymentManager::Import;
+package DeploymentManager::ParseError;
   use Moose;
+  extends 'Throwable::Error';
 
   has path => (is => 'ro', isa => 'Str', required => 1);
 
+package DeploymentManager::CoerceToAndFromHashRefs;
+  use Moose::Role;
+  use Ref::Util qw/is_ref is_hashref/;
+
+  sub _make_path { 
+    shift @_ if ($_[0] eq '');
+    join '.', @_ 
+  }
+
   sub from_hashref {
-    my ($self, $hr) = @_;
+    my ($class, $hr, $path) = @_;
+
+    $path = '' if (not defined $path);
+
+    DeploymentManager::ParseError->throw(
+      message => 'expecting a hashref',
+      path => '',
+    ) if (not is_hashref($hr));
+
+    # since we'll be deleting keys from $hr, we don't want them disappearing from the
+    # original hashref
+    $hr = { %$hr };
     my $init_args = {};
-    $init_args->{ path } = $hr->{ path } if (defined $hr->{ path });
-    DeploymentManager::Import->new($init_args);
+
+    # Take care of "coercions" to the type of the attribute. Don't try to verify
+    # types, since that will be done by Moose while constructing the object.
+    # Prepare $hr to detect if there are extra, unknown attributes by deleting the keys.
+    foreach my $att ($class->meta->get_all_attributes) {
+      my $attribute = $att->name;
+      next if (not exists $hr->{ $attribute });
+      my $value = delete $hr->{ $attribute };
+
+      if ($att->type_constraint->isa('Moose::Meta::TypeConstraint::Class')){
+        my $res = eval {
+          $init_args->{ $attribute } = 
+            $att->type_constraint->name->from_hashref($value, _make_path($path,$attribute));
+        };
+        if ($@) {
+          if (ref($@) and $@->isa('DeploymentManager::ParseError') and $@->message eq 'expecting a hashref') {
+            DeploymentManager::ParseError->throw(
+              message => 'metadata is of invalid type',
+              path => _make_path($path, $attribute),
+            );
+          } else {
+            die $@;
+          }
+        }
+      } else {
+        $init_args->{ $attribute } = $value;
+      }
+    }
+
+    # Detect if in $hr there were extra keys that don't correspond to attributes 
+    if (keys %$hr) {
+      my $example_key = (keys %$hr)[0];
+      DeploymentManager::ParseError->throw(
+        message => $example_key . ' is not a valid attribute',
+        path => _make_path($path, $example_key),
+      );
+    }
+
+    # Let Moose do all the hard work of detecting if an attribute is required, of the
+    # correct type, etc.
+    my $return = eval {
+      $class->new($init_args);
+    };
+    if ($@) {
+      #use Data::Dumper;
+      #print Dumper($@);
+
+      if ($@->isa('Moose::Exception::AttributeIsRequired')){
+        DeploymentManager::ParseError->throw(
+          message => $@->attribute_name . ' is required',
+          path => _make_path($path, $@->attribute_name),
+        );
+      } elsif ($@->isa('Moose::Exception::ValidationFailedForTypeConstraint')){
+         DeploymentManager::ParseError->throw(
+          message => $@->attribute->name . ' is of invalid type',
+          path => _make_path($path, $@->attribute->name),
+        );
+      } else {
+        die $@;
+      }
+    } else {
+      return $return;
+    }
   }
 
   sub as_hashref {
-    my $self = shift;
-    { path => $self->path }
+    my ($self, @ctx) = @_;
+    
+    my $hashref = {};
+    foreach my $att ($self->meta->get_all_attributes) {
+      my $attribute = $att->name;
+      next if (not defined $self->$attribute);
+
+      if ($att->type_constraint->isa('Moose::Meta::TypeConstraint::Class')){
+        $hashref->{ $attribute } = $self->$attribute->to_hashref(@ctx);
+      } else {
+        $hashref->{ $attribute } = $self->$attribute;
+      }
+    }
+    return $hashref;
   }
 
 package DeploymentManager::Output;
   use Moose;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
 
   has name => (is => 'ro', isa => 'Str', required => 1);
   has value => (is => 'ro', isa => 'Str', required => 1);
 
-  sub from_hashref {
-    my ($self, $hr) = @_;
-    my $init_args = {};
-    $init_args->{ name } = $hr->{ name } if (defined $hr->{ name });
-    $init_args->{ value } = $hr->{ value } if (defined $hr->{ value });
-    DeploymentManager::Output->new($init_args);
-  }
-
-  sub as_hashref {
-    my $self = shift;
-    { name => $self->name, value => $self->value }
-  }
-
 package DeploymentManager::Property;
   use Moose;
   use Moose::Util::TypeConstraints qw/enum/;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
 
   enum 'DeploymentManager::Property::Type', [qw/string boolean integer number/];
 
@@ -47,65 +130,25 @@ package DeploymentManager::Property;
   has pattern => (is => 'ro');
   #has not X / allOf X, Y / anyOf X, Y / oneOf X, Y
 
-  sub as_hashref {
-    my ($self, @ctx) = @_;
-    return {
-      type => $self->type,
-      (defined $self->default) ? (default => $self->default) : (),
-      (defined $self->minimum) ? (minimum => $self->minimum) : (),
-      (defined $self->maximum) ? (maximim => $self->maximum) : (),
-      (defined $self->pattern) ? (pattern => $self->pattern) : (),
-    }
-  }
-
 package DeploymentManager::Resource::Metadata;
   use Moose;
-  use Moose::Util::TypeConstraints;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
 
   has dependsOn => (is => 'ro', isa => 'ArrayRef[Str]');
 
-  sub from_hashref {
-    my ($class, $hr) = @_;
-    my $init_args = {};
-    $init_args->{ dependsOn } = $hr->{ dependsOn } if (defined $hr->{ dependsOn });
-    DeploymentManager::Resource::Metadata->new(%$init_args);
-  }
-
-  sub as_hashref {
-    my $self = shift;
-    return {
-      dependsOn => $self->dependsOn,
-    }
-  }
+  #TODO: this method is not being inherited from the CoerceToAndFromHashRefs role, and I don't
+  #      know why :S
+  sub to_hashref { { dependsOn => shift->dependsOn } };
 
 package DeploymentManager::Resource;
   use Moose;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
 
   has name => (is => 'ro', isa => 'Str', required => 1);
   has type => (is => 'ro', isa => 'Str', required => 1);
   #TODO: don't know if properties is really required
   has properties => (is => 'ro', isa => 'HashRef', required => 1); 
   has metadata => (is => 'ro', isa => 'DeploymentManager::Resource::Metadata');
-
-  sub from_hashref {
-    my ($self, $hr) = @_;
-    my $init_args = {};
-    $init_args->{ name } = $hr->{ name } if (defined $hr->{ name });
-    $init_args->{ type } = $hr->{ type } if (defined $hr->{ type });
-    $init_args->{ properties } = $hr->{ properties };
-    $init_args->{ metadata } = DeploymentManager::Resource::Metadata->from_hashref($hr->{ metadata }) if (defined $hr->{ metadata });
-    DeploymentManager::Resource->new($init_args);
-  }
-
-  sub as_hashref {
-    my ($self, @ctx) = @_;
-    return {
-      name => $self->name,
-      type => $self->type,
-      properties => $self->properties,
-      (defined $self->metadata) ? (metadata => $self->metadata->as_hashref(@ctx)) : (),
-    };
-  }
 
 package DeploymentManager::Document;
   use Moose;
