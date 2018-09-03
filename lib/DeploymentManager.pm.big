@@ -1,0 +1,60 @@
+package DeploymentManager::Info;
+  use Moose;
+
+  has title => (is => 'ro', isa => 'Str');
+  has author => (is => 'ro', isa => 'Str');
+  has description => (is => 'ro', isa => 'Str');
+  has version => (is => 'ro', isa => 'Str');
+
+package DeploymentManagerTemplate;
+  use Moose;
+  # https://cloud.google.com/deployment-manager/docs/configuration/syntax-reference
+
+  has info => (is => 'ro', isa => 'DeploymentManager::Info');
+  has required => (is => 'ro', isa => 'ArrayRef[Str]');
+  has properties => (is => 'ro', isa => 'HashRef[DeploymentManager::Property]');
+  has imports => (is => 'ro', isa => 'ArrayRef[Str]');
+  has resources => (is => 'ro', isa => 'ArrayRef[DeploymentManager::Resource]');
+  has outputs => (is => 'ro', isa => 'ArrayRef[DeploymentManager::Output]');
+
+1;
+
+package DeploymentManager::Value;
+  use Moose;
+
+  has value => (is => 'ro', required => 1);
+
+  sub as_hashref {
+    my $self = shift;
+    return $self->value;
+  }
+
+  sub from_hashref {
+    my ($class, $hr) = @_;
+
+    DeploymentManager::Value->new(
+      value => $hr
+    );
+  }
+
+package DeploymentManager::Value::Environment;
+  use Moose;
+  extends 'DeploymentManager::Value';
+
+  sub as_hashref {
+    my $self = shift;
+    return sprintf q|{{ env["%s"] }}|, $self->value;
+  }
+
+package DeploymentManager::Value::String;
+  use Moose;
+  extends 'DeploymentManager::Value';
+  has '+value' => (isa => 'Str');
+
+package DeploymentManager::Import;
+  use Moose;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
+
+  has path => (is => 'ro', isa => 'Str', required => 1);
+
+

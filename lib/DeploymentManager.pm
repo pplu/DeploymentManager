@@ -133,6 +133,12 @@ package DeploymentManager::CoerceToAndFromHashRefs;
     return $hashref;
   }
 
+package DeploymentManager::Import;
+  use Moose;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
+
+  has path => (is => 'ro', isa => 'Str', required => 1);
+
 package DeploymentManager::Output;
   use Moose;
   with 'DeploymentManager::CoerceToAndFromHashRefs';
