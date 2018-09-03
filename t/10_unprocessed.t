@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use DeploymentManager;
 use Test::More;
+use Test::Exception;
 
 { 
   my $d = DeploymentManager::Template::Jinja::Unprocessed->new(
@@ -69,7 +70,11 @@ EOT
 
 { 
   my $d = DeploymentManager::Template::Jinja::Unprocessed->new(
-    content => '',
+    content => <<EOT,
+resources:
+outputs:
+EOT
+
   );
 
   my $p = $d->process;
@@ -77,7 +82,7 @@ EOT
   cmp_ok($p->num_of_outputs, '==', 0);
   is_deeply(
     $p->as_hashref,
-    { }
+    { resources => [], outputs => [] }
   );
 }
 
@@ -118,21 +123,13 @@ EOT
 
 { 
   my $d = DeploymentManager::Config::Unprocessed->new(
-    content => <<EOT,
-imports:
-resources:
-outputs:
-EOT
+    content => ''
   );
 
-  my $p = $d->process;
-  cmp_ok($p->num_of_resources, '==', 0);
-  cmp_ok($p->num_of_imports, '==', 0);
-  cmp_ok($p->num_of_outputs, '==', 0);
-  is_deeply(
-    $p->as_hashref,
-    { }
-  );
+  throws_ok(sub {
+    $d->process;
+  }, 'DeploymentManager::ParseError');
+  cmp_ok($@->path, 'eq', '');
 }
 
 

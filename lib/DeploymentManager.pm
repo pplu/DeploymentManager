@@ -4,6 +4,11 @@ package DeploymentManager::ParseError;
 
   has path => (is => 'ro', isa => 'Str', required => 1);
 
+  sub as_string {
+    my $self = shift;
+    'Parse Error in path: "' . $self->path . '": ' . $self->message;
+  }
+
 package DeploymentManager::CoerceToAndFromHashRefs;
   use Moose::Role;
   use Ref::Util qw/is_ref is_hashref/;
@@ -20,7 +25,7 @@ package DeploymentManager::CoerceToAndFromHashRefs;
 
     DeploymentManager::ParseError->throw(
       message => 'expecting a hashref',
-      path => '',
+      path => $path,
     ) if (not is_hashref($hr));
 
     # since we'll be deleting keys from $hr, we don't want them disappearing from the
@@ -44,12 +49,31 @@ package DeploymentManager::CoerceToAndFromHashRefs;
         if ($@) {
           if (ref($@) and $@->isa('DeploymentManager::ParseError') and $@->message eq 'expecting a hashref') {
             DeploymentManager::ParseError->throw(
-              message => 'metadata is of invalid type',
+              message => $attribute . ' is of invalid type',
               path => _make_path($path, $attribute),
             );
           } else {
             die $@;
           }
+        }
+      } elsif ($att->type_constraint->isa('Moose::Meta::TypeConstraint::Parameterized')){
+        if ($att->type_constraint->parameterized_from eq 'ArrayRef') {
+          my $constraint = $att->type_constraint;
+
+          if ($constraint->type_parameter->isa('Moose::Meta::TypeConstraint::Class')){
+            my $i = 0;
+            $init_args->{ $attribute } = [
+              map {
+                $constraint->type_parameter->name->from_hashref($_, _make_path($path, $attribute, $i++))
+              } @$value
+            ];
+          } else {
+            $init_args->{ $attribute } = $value;
+          }
+        } elsif ($att->type_constraint->parameterized_from eq 'HashRef') {
+          die "Can't handle HashRef of things";
+        } else {
+          die "Unknown parameterized type";
         }
       } else {
         $init_args->{ $attribute } = $value;
@@ -152,6 +176,7 @@ package DeploymentManager::Resource;
 
 package DeploymentManager::Document;
   use Moose;
+  with 'DeploymentManager::CoerceToAndFromHashRefs';
 
   has outputs => (
     is => 'ro',
@@ -173,14 +198,6 @@ package DeploymentManager::Document;
     my $self = shift;
     return 0 if (not defined $self->resources);
     return scalar(@{ $self->resources });
-  }
-
-  sub as_hashref {
-    my ($self, @ctx) = @_;
-    return {
-      (defined $self->resources) ? (resources => [ map { $_->as_hashref(@ctx) } @{ $self->resources } ] ) : (),
-      (defined $self->outputs) ? (outputs => [ map { $_->as_hashref(@ctx) } @{ $self->outputs } ]) : ()
-    };
   }
 
 package DeploymentManager::Template;
@@ -273,18 +290,6 @@ package DeploymentManager::Template::Jinja;
   use Moose;
   extends 'DeploymentManager::Template';
 
-  sub from_hashref {
-    my ($self, $hr) = @_;
-    my $init_args = {};
-    if (defined $hr->{ resources }) {
-      $init_args->{ resources } = [ map { DeploymentManager::Resource->from_hashref($_) } @{ $hr->{ resources } } ];
-    }
-    if (defined $hr->{ outputs }) {
-      $init_args->{ outputs } = [ map { DeploymentManager::Output->from_hashref($_) } @{ $hr->{ outputs } } ];
-    }
-    DeploymentManager::Template::Jinja->new($init_args);
-  }
-
 package DeploymentManager::Config;
   use Moose;
   extends 'DeploymentManager::Document';
@@ -299,31 +304,6 @@ package DeploymentManager::Config;
     return 0 if (not defined $self->imports);
     return scalar(@{ $self->imports });
   }
-
-  sub from_hashref {
-    my ($self, $hr) = @_;
-    my $init_args = {};
-    if (defined $hr->{ resources }) {
-      $init_args->{ resources } = [ map { DeploymentManager::Resource->from_hashref($_) } @{ $hr->{ resources } } ];
-    }
-    if (defined $hr->{ outputs }) {
-      $init_args->{ outputs } = [ map { DeploymentManager::Output->from_hashref($_) } @{ $hr->{ outputs } } ];
-    }
-    if (defined $hr->{ imports }) {
-      $init_args->{ imports } = [ map { DeploymentManager::Import->from_hashref($_) } @{ $hr->{ imports } } ];
-    }
-    DeploymentManager::Config->new($init_args);
-  }
-
-  around as_hashref => sub {
-    my ($orig, $self, @ctx) = @_;
-
-    my $hr = $self->$orig(@ctx);
-    if (defined $self->imports) {
-      $hr->{ imports } = [ map { $_->as_hashref(@ctx) } @{ $self->imports } ];
-    }
-    return $hr;
-  };
 
 package DeploymentManager::File;
   use Moose;
