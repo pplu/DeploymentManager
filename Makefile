@@ -1,8 +1,8 @@
-package: readme
-	cpanm -l local -n Dist::Zilla
-	perl -I local/lib/perl5/ local/bin/dzil authordeps --missing | cpanm -n -l local/
-	perl -I local/lib/perl5/ local/bin/dzil build
+dist: readme
+	cpanm -l dzil-local -n Dist::Zilla
+	PATH=$(PATH):dzil-local/bin PERL5LIB=dzil-local/lib/perl5 dzil authordeps --missing | cpanm -n -l dzil-local/
+	PATH=$(PATH):dzil-local/bin PERL5LIB=dzil-local/lib/perl5 dzil build
 
 readme:
-	cpanm -l local -n Pod::Markdown
-	perl -I local/lib/perl5/ local/bin/pod2markdown lib/DeploymentManager.pm > README.md
+	cpanm -l dzil-local -n Pod::Markdown
+	PATH=$(PATH):dzil-local/bin PERL5LIB=dzil-local/lib/perl5 pod2markdown lib/DeploymentManager.pm > README.md
