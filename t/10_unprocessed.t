@@ -132,7 +132,35 @@ EOT
   cmp_ok($@->path, 'eq', '');
 }
 
+{ 
+  my $d = DeploymentManager::Config::Unprocessed->new(
+    content => <<EOF
+resources:
+  name: x
+EOF
+  );
 
+  throws_ok(sub {
+    $d->process;
+  }, 'DeploymentManager::ParseError');
+  cmp_ok($@->path, 'eq', '');
+}
+
+{ 
+  my $d = DeploymentManager::Config::Unprocessed->new(
+    content => <<EOF
+resources:
+  - name: x
+    type: y
+    typo: typo
+EOF
+  );
+
+  throws_ok(sub {
+    $d->process;
+  }, 'DeploymentManager::ParseError');
+  cmp_ok($@->path, 'eq', '');
+}
 
 
 done_testing;

@@ -11,7 +11,7 @@ package DeploymentManager::ParseError;
 
 package DeploymentManager::CoerceToAndFromHashRefs;
   use Moose::Role;
-  use Ref::Util qw/is_ref is_hashref/;
+  use Ref::Util qw/is_ref is_hashref is_arrayref/;
 
   sub _make_path { 
     shift @_ if ($_[0] eq '');
@@ -52,6 +52,11 @@ package DeploymentManager::CoerceToAndFromHashRefs;
               message => $attribute . ' is of invalid type',
               path => _make_path($path, $attribute),
             );
+          } elsif (ref($@) and $@->isa('Moose::Exception::ValidationFailedForTypeConstraint')) {
+            DeploymentManager::ParseError->throw(
+              message => 'X',
+              path => _make_path($path, $@->attribute->name)
+            );
           } else {
             die $@;
           }
@@ -61,6 +66,11 @@ package DeploymentManager::CoerceToAndFromHashRefs;
           my $constraint = $att->type_constraint;
 
           if ($constraint->type_parameter->isa('Moose::Meta::TypeConstraint::Class')){
+            DeploymentManager::ParseError->throw(
+              message => "$path has to be an Array",
+              path => _make_path($path, $attribute),
+            ) if (not is_arrayref($value));
+
             my $i = 0;
             $init_args->{ $attribute } = [
               map {
